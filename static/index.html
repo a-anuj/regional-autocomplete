@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tanglish Autocomplete</title>
+  <meta name="description" content="Tanglish on-screen keyboard with AI word suggestions powered by DistilGPT2." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #080c14;
+      --surface:      #0f1623;
+      --surface2:     #161e2e;
+      --surface3:     #1c2640;
+      --border:       #243050;
+      --accent:       #7c6ef5;
+      --accent2:      #f06292;
+      --accent3:      #4ecdc4;
+      --text:         #dde3f5;
+      --text-muted:   #6b778f;
+      --ghost:        #4a5370;
+      --key-bg:       #1a2235;
+      --key-bg-hover: #222d45;
+      --key-shadow:   rgba(0,0,0,0.5);
+      --key-border:   #2a3558;
+      --radius:       12px;
+      --font:         'Inter', sans-serif;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+
+    /* ── Animated gradient background ───────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,110,245,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(240,98,146,0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    #app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 20px;
+      gap: 20px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .logo {
+      width: 44px; height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 24px rgba(124,110,245,.4);
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -.3px;
+    }
+
+    .header-text p {
+      font-size: .72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Text display area ───────────────────────────────────────── */
+    #display-card {
+      width: 100%;
+      max-width: 760px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
+      min-height: 96px;
+      position: relative;
+    }
+
+    #typed-text {
+      font-size: 1.2rem;
+      line-height: 1.7;
+      letter-spacing: .01em;
+      word-break: break-word;
+      white-space: pre-wrap;
+      min-height: 2em;
+    }
+
+    /* The blinking caret at end of text */
+    #caret {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      border-radius: 1px;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    /* Ghost / completion text */
+    #ghost-text {
+      color: var(--ghost);
+      font-style: italic;
+    }
+
+    /* ── Status bar ──────────────────────────────────────────────── */
+    #status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      font-size: .7rem;
+      color: var(--text-muted);
+    }
+
+    #status-left { display: flex; align-items: center; gap: 8px; }
+
+    .spinner {
+      width: 11px; height: 11px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Suggestion bar ─────────────────────────────────────────── */
+    #suggestion-bar {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .suggestion-label {
+      font-size: .65rem;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .suggestions {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    .suggestion-chip {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 24px;
+      padding: 7px 18px;
+      font-size: .88rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text);
+      transition: all .15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .suggestion-chip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      opacity: 0;
+      transition: opacity .15s;
+    }
+
+    .suggestion-chip span { position: relative; z-index: 1; }
+
+    .suggestion-chip:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(124,110,245,.3);
+    }
+
+    .suggestion-chip:hover::before { opacity: .12; }
+
+    .suggestion-chip.primary {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(124,110,245,.2), rgba(240,98,146,.1));
+      box-shadow: 0 0 16px rgba(124,110,245,.2);
+    }
+
+    .suggestion-chip:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .suggestion-chip.loading {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🌐</div>
+    <div class="header-text">
+      <h1>Tanglish Autocomplete</h1>
+      <p>DistilGPT2 · Tamil-English · Tap a key to get AI word suggestions</p>
+    </div>
+  </div>
+
+  <!-- Text display -->
+  <div id="display-card">
+    <div id="typed-text"><span id="text-content"></span><span id="caret"></span></div>
+    <div id="status-bar">
+      <div id="status-left">
+        <div class="spinner" id="spinner"></div>
+        <span id="status-msg">Start typing below…</span>
+      </div>
+      <span id="char-count">0 chars</span>
+    </div>
+  </div>
+
+  <!-- AI Suggestion bar -->
+  <div id="suggestion-bar">
+    <span class="suggestion-label">AI suggests</span>
+    <div class="suggestions" id="suggestions">
+      <div class="suggestion-chip loading" id="chip-1"><span>—</span></div>
+      <div class="suggestion-chip loading" id="chip-2"><span>—</span></div>
+      <div class="suggestion-chip loading" id="chip-3"><span>—</span></div>
+    </div>
+  </div>
+
+  </div><!-- /#app -->
+
+<script>
+"use strict";
+
+/* ── State ─────────────────────────────────────────────────────────── */
+let typedText     = "";
+let debounceTimer = null;
+const DEBOUNCE_MS = 0;
+
+/* ── Element refs ───────────────────────────────────────────────────── */
+const textContent = document.getElementById("text-content");
+const statusMsg   = document.getElementById("status-msg");
+const charCount   = document.getElementById("char-count");
+const spinner     = document.getElementById("spinner");
+const chip1       = document.getElementById("chip-1");
+const chip2       = document.getElementById("chip-2");
+const chip3       = document.getElementById("chip-3");
+const chips       = [chip1, chip2, chip3];
+
+/* ── Render typed text ──────────────────────────────────────────────── */
+function renderText() {
+  textContent.textContent = typedText;
+  charCount.textContent = typedText.length + " chars";
+}
+
+/* ── Suggestion chips ───────────────────────────────────────────────── */
+function setChipsLoading() {
+  chips.forEach(c => {
+    c.classList.add("loading");
+    c.querySelector("span").textContent = "…";
+    c.classList.remove("primary");
+  });
+  
+}
+
+function setChips(words) {
+  chips.forEach(function(c, i) {
+    c.classList.remove("loading");
+    if (words[i]) {
+      c.querySelector("span").textContent = words[i];
+      (function(word) { c.onclick = function() { acceptWord(word); }; })(words[i]);
+      c.classList.toggle("primary", i === 0);
+    } else {
+      c.querySelector("span").textContent = "—";
+      c.onclick = null;
+      c.classList.remove("primary");
+    }
+  });
+  if (words[0] && typedText.length > 0) {
+    var needsSpace = typedText[typedText.length - 1] !== " ";
+    
+  } else {
+    
+  }
+}
+
+function setChipsEmpty(msg) {
+  chips.forEach(c => {
+    c.classList.remove("loading", "primary");
+    c.querySelector("span").textContent = "—";
+    c.onclick = null;
+  });
+  
+  statusMsg.textContent = msg || "Type something to get suggestions…";
+}
+
+/* ── Accept a suggested word ────────────────────────────────────────── */
+function acceptWord(word) {
+  if (!word || word === "—" || word === "…") return;
+  
+  if (typedText.length > 0 && typedText[typedText.length - 1] !== " ") {
+    var lastSpaceIndex = Math.max(typedText.lastIndexOf(" "), typedText.lastIndexOf("\n"));
+    if (lastSpaceIndex === -1) {
+      typedText = "";
+    } else {
+      typedText = typedText.substring(0, lastSpaceIndex + 1);
+    }
+  }
+  
+  var needsSpace = typedText.length > 0 && typedText[typedText.length - 1] !== " " && typedText[typedText.length - 1] !== "\n";
+  typedText += (needsSpace ? " " : "") + word + " ";
+  renderText();
+  
+  clearTimeout(debounceTimer);
+  scheduleFetch();
+}
+
+/* ── API: fetch 3 diverse suggestions ─────────────────────────────── */
+async function fetchSuggestions() {
+  var prompt = typedText.trim();
+  if (!prompt || prompt.length < 2) {
+    setChipsEmpty("Type at least 2 characters…");
+    return;
+  }
+
+  spinner.style.display = "block";
+  statusMsg.textContent = "Thinking…";
+  setChipsLoading();
+
+  try {
+    var result = await fetch("/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: prompt }),
+    }).then(function(r) { return r.json(); });
+
+    var results = result.words || [];
+
+    var seen = new Set();
+    var unique = [];
+    for (var i = 0; i < results.length; i++) {
+      var clean = results[i].trim();
+      if (clean && !seen.has(clean.toLowerCase())) {
+        seen.add(clean.toLowerCase());
+        unique.push(clean);
+      }
+    }
+    while (unique.length < 3) unique.push("");
+
+    setChips(unique);
+    statusMsg.textContent = unique[0] ? "Tap a suggestion to add it →" : "No suggestions yet";
+  } catch (e) {
+    setChipsEmpty("Error: " + e.message);
+  } finally {
+    spinner.style.display = "none";
+  }
+}
+
+function scheduleFetch() {
+  clearTimeout(debounceTimer);
+  if (typedText.trim().length >= 2) {
+    debounceTimer = setTimeout(fetchSuggestions, DEBOUNCE_MS);
+  } else {
+    setChipsEmpty();
+  }
+}
+
+/* ── Key press logic ─────────────────────────────────────────────────── */
+function pressKey(char) {
+  if (typedText.length >= 512) return;
+  typedText += char;
+  renderText();
+    scheduleFetch();
+}
+
+function pressSpace() {
+  if (typedText.length >= 512) return;
+  typedText += " ";
+  renderText();
+  scheduleFetch();
+}
+
+function pressBackspace() {
+  if (typedText.length === 0) return;
+  typedText = typedText.slice(0, -1);
+  renderText();
+  
+  scheduleFetch();
+}
+
+function pressEnter() {
+  /* If there is a top suggestion, accept it on enter */
+  if (typedText.length > 0 && typedText[typedText.length - 1] !== " " && typedText[typedText.length - 1] !== "\n") {
+    var word = chips[0].querySelector("span").textContent;
+    if (word && word !== "—" && word !== "…") {
+      acceptWord(word);
+      return;
+    }
+  }
+  typedText += "\n";
+  renderText();
+  scheduleFetch();
+}
+
+
+
+/* ── Physical keyboard support ─────────────────────────────────────── */
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Tab") { e.preventDefault(); return; }
+  if (e.key === "Backspace") { pressBackspace(); return; }
+  if (e.key === "Enter") { pressEnter(); return; }
+  if (e.key === " ") { e.preventDefault(); pressSpace(); return; }
+    if (e.key.length === 1) {
+    typedText += e.key;
+    renderText();
+        scheduleFetch();
+  }
+});
+
+
+
+
+/* ── Boot ──────────────────────────────────────────────────────────── */
+renderText();
+setChipsEmpty("Start typing to get AI suggestions…");
+</script>
+</body>
+</html>
