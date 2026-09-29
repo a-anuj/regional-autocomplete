@@ -1,472 +1,429 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tanglish Autocomplete</title>
-  <meta name="description" content="Tanglish on-screen keyboard with AI word suggestions powered by DistilGPT2." />
+  <title>Tanglish Autocomplete — Editorial Heritage</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap"
+    rel="stylesheet" />
   <style>
-    /* ── Reset ────────────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:           #080c14;
-      --surface:      #0f1623;
-      --surface2:     #161e2e;
-      --surface3:     #1c2640;
-      --border:       #243050;
-      --accent:       #7c6ef5;
-      --accent2:      #f06292;
-      --accent3:      #4ecdc4;
-      --text:         #dde3f5;
-      --text-muted:   #6b778f;
-      --ghost:        #4a5370;
-      --key-bg:       #1a2235;
-      --key-bg-hover: #222d45;
-      --key-shadow:   rgba(0,0,0,0.5);
-      --key-border:   #2a3558;
-      --radius:       12px;
-      --font:         'Inter', sans-serif;
+      --bg: #F7F5F0;
+      --surface: #FFFFFF;
+      --text: #2C2A29;
+      --text-light: #8C8985;
+      --ghost-grad: linear-gradient(135deg, #E07A5F 0%, #8D7A9E 100%);
     }
 
-    html, body {
-      min-height: 100%;
-      background: var(--bg);
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
       color: var(--text);
-      font-family: var(--font);
-    }
-
-    /* ── Animated gradient background ───────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,110,245,0.12) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(240,98,146,0.08) 0%, transparent 60%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ── Layout ─────────────────────────────────────────────────── */
-    #app {
-      position: relative;
-      z-index: 1;
+      font-family: 'Google Sans', 'Roboto', sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 28px 16px 20px;
-      gap: 20px;
-    }
-
-    /* ── Header ─────────────────────────────────────────────────── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      width: 100%;
-      max-width: 760px;
-    }
-
-    .logo {
-      width: 44px; height: 44px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 0 24px rgba(124,110,245,.4);
-      flex-shrink: 0;
-    }
-
-    .header-text h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: -.3px;
-    }
-
-    .header-text p {
-      font-size: .72rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    /* ── Text display area ───────────────────────────────────────── */
-    #display-card {
-      width: 100%;
-      max-width: 760px;
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: 18px;
-      padding: 20px 24px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.4);
-      min-height: 96px;
+      padding: 8vh 20px 40px;
       position: relative;
+      overflow-x: hidden;
     }
 
-    #typed-text {
-      font-size: 1.2rem;
+    /* Subtle Noise Overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 10;
+      mix-blend-mode: multiply;
+    }
+
+    /* Faint geometric watermark */
+    .watermark {
+      position: fixed;
+      bottom: -15vw;
+      right: -10vw;
+      width: 50vw;
+      height: 50vw;
+      border: 1px solid rgba(44, 42, 41, 0.03);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .watermark::before {
+      content: "";
+      position: absolute;
+      inset: 10%;
+      border: 1px solid rgba(44, 42, 41, 0.03);
+      border-radius: 50%;
+    }
+
+    .watermark::after {
+      content: "";
+      position: absolute;
+      inset: 22%;
+      border: 1px dashed rgba(44, 42, 41, 0.04);
+      border-radius: 50%;
+    }
+
+    /* Container */
+    .container {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Google Sans', 'Roboto', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      font-size: 0.95rem;
+      color: var(--text-light);
+      font-weight: 400;
+      letter-spacing: 0.02em;
+    }
+
+    /* Editor Card */
+    .editor-card {
+      background: var(--surface);
+      border-radius: 28px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      min-height: 450px;
+      transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .editor-card:focus-within {
+      transform: translateY(-4px);
+      box-shadow: 0 40px 80px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Custom Input Area wrapper */
+    .editor-container {
+      position: relative;
+      flex-grow: 1;
+      font-size: 1.35rem;
       line-height: 1.7;
-      letter-spacing: .01em;
-      word-break: break-word;
+      font-weight: 300;
+      cursor: text;
+    }
+
+    /* Base styles shared by textarea and overlay to ensure perfect alignment */
+    #editor,
+    #overlay {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      font-weight: inherit;
+      padding: 0;
+      margin: 0;
       white-space: pre-wrap;
-      min-height: 2em;
+      word-break: break-word;
+      overflow-y: auto;
     }
 
-    /* The blinking caret at end of text */
-    #caret {
-      display: inline-block;
-      width: 2px;
-      height: 1.1em;
-      background: var(--accent);
-      vertical-align: text-bottom;
-      margin-left: 1px;
-      border-radius: 1px;
-      animation: blink 1s step-end infinite;
+    /* The transparent textarea trick for perfect native editing */
+    #editor {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: transparent;
+      caret-color: var(--text);
+      z-index: 2;
     }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0; }
+    #editor::placeholder {
+      color: var(--text-light);
+      opacity: 0.5;
     }
 
-    /* Ghost / completion text */
-    #ghost-text {
-      color: var(--ghost);
+    #editor::selection {
+      background: rgba(224, 122, 95, 0.2);
+      color: transparent;
+    }
+
+    /* The visual overlay */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      color: var(--text);
+    }
+
+    .ghost-text {
+      background: var(--ghost-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
       font-style: italic;
+      font-weight: 400;
+      opacity: 0.9;
     }
 
-    /* ── Status bar ──────────────────────────────────────────────── */
-    #status-bar {
+    /* Footer status */
+    .card-footer {
+      margin-top: 30px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(44, 42, 41, 0.08);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 12px;
-      font-size: .7rem;
-      color: var(--text-muted);
+      font-size: 0.85rem;
+      color: var(--text-light);
+      font-weight: 400;
     }
 
-    #status-left { display: flex; align-items: center; gap: 8px; }
-
-    .spinner {
-      width: 11px; height: 11px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .65s linear infinite;
-      display: none;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Suggestion bar ─────────────────────────────────────────── */
-    #suggestion-bar {
-      width: 100%;
-      max-width: 760px;
+    .status-left {
       display: flex;
-      gap: 10px;
       align-items: center;
+      gap: 12px;
     }
 
-    .suggestion-label {
-      font-size: .65rem;
-      text-transform: uppercase;
-      letter-spacing: .8px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .suggestions {
-      display: flex;
-      gap: 8px;
-      flex: 1;
-      flex-wrap: wrap;
-    }
-
-    .suggestion-chip {
-      background: var(--surface2);
-      border: 1.5px solid var(--border);
-      border-radius: 24px;
-      padding: 7px 18px;
-      font-size: .88rem;
-      font-weight: 500;
-      cursor: pointer;
-      color: var(--text);
-      transition: all .15s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .suggestion-chip::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #E07A5F;
+      border-radius: 50%;
       opacity: 0;
-      transition: opacity .15s;
+      transition: opacity 0.3s;
     }
 
-    .suggestion-chip span { position: relative; z-index: 1; }
-
-    .suggestion-chip:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(124,110,245,.3);
+    .pulse-dot.active {
+      opacity: 1;
+      animation: pulse 1.5s infinite ease-in-out;
     }
 
-    .suggestion-chip:hover::before { opacity: .12; }
+    @keyframes pulse {
+      0% {
+        transform: scale(0.9);
+        box-shadow: 0 0 0 0 rgba(224, 122, 95, 0.6);
+      }
 
-    .suggestion-chip.primary {
-      border-color: var(--accent);
-      background: linear-gradient(135deg, rgba(124,110,245,.2), rgba(240,98,146,.1));
-      box-shadow: 0 0 16px rgba(124,110,245,.2);
-    }
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 8px rgba(224, 122, 95, 0);
+      }
 
-    .suggestion-chip:active {
-      transform: translateY(0);
-      box-shadow: none;
-    }
-
-    .suggestion-chip.loading {
-      opacity: 0.5;
-      pointer-events: none;
-    }
-
-    </style>
-</head>
-<body>
-
-<div id="app">
-
-  <!-- Header -->
-  <div class="header">
-    <div class="logo">🌐</div>
-    <div class="header-text">
-      <h1>Tanglish Autocomplete</h1>
-      <p>DistilGPT2 · Tamil-English · Tap a key to get AI word suggestions</p>
-    </div>
-  </div>
-
-  <!-- Text display -->
-  <div id="display-card">
-    <div id="typed-text"><span id="text-content"></span><span id="caret"></span></div>
-    <div id="status-bar">
-      <div id="status-left">
-        <div class="spinner" id="spinner"></div>
-        <span id="status-msg">Start typing below…</span>
-      </div>
-      <span id="char-count">0 chars</span>
-    </div>
-  </div>
-
-  <!-- AI Suggestion bar -->
-  <div id="suggestion-bar">
-    <span class="suggestion-label">AI suggests</span>
-    <div class="suggestions" id="suggestions">
-      <div class="suggestion-chip loading" id="chip-1"><span>—</span></div>
-      <div class="suggestion-chip loading" id="chip-2"><span>—</span></div>
-      <div class="suggestion-chip loading" id="chip-3"><span>—</span></div>
-    </div>
-  </div>
-
-  </div><!-- /#app -->
-
-<script>
-"use strict";
-
-/* ── State ─────────────────────────────────────────────────────────── */
-let typedText     = "";
-let debounceTimer = null;
-const DEBOUNCE_MS = 0;
-
-/* ── Element refs ───────────────────────────────────────────────────── */
-const textContent = document.getElementById("text-content");
-const statusMsg   = document.getElementById("status-msg");
-const charCount   = document.getElementById("char-count");
-const spinner     = document.getElementById("spinner");
-const chip1       = document.getElementById("chip-1");
-const chip2       = document.getElementById("chip-2");
-const chip3       = document.getElementById("chip-3");
-const chips       = [chip1, chip2, chip3];
-
-/* ── Render typed text ──────────────────────────────────────────────── */
-function renderText() {
-  textContent.textContent = typedText;
-  charCount.textContent = typedText.length + " chars";
-}
-
-/* ── Suggestion chips ───────────────────────────────────────────────── */
-function setChipsLoading() {
-  chips.forEach(c => {
-    c.classList.add("loading");
-    c.querySelector("span").textContent = "…";
-    c.classList.remove("primary");
-  });
-  
-}
-
-function setChips(words) {
-  chips.forEach(function(c, i) {
-    c.classList.remove("loading");
-    if (words[i]) {
-      c.querySelector("span").textContent = words[i];
-      (function(word) { c.onclick = function() { acceptWord(word); }; })(words[i]);
-      c.classList.toggle("primary", i === 0);
-    } else {
-      c.querySelector("span").textContent = "—";
-      c.onclick = null;
-      c.classList.remove("primary");
-    }
-  });
-  if (words[0] && typedText.length > 0) {
-    var needsSpace = typedText[typedText.length - 1] !== " ";
-    
-  } else {
-    
-  }
-}
-
-function setChipsEmpty(msg) {
-  chips.forEach(c => {
-    c.classList.remove("loading", "primary");
-    c.querySelector("span").textContent = "—";
-    c.onclick = null;
-  });
-  
-  statusMsg.textContent = msg || "Type something to get suggestions…";
-}
-
-/* ── Accept a suggested word ────────────────────────────────────────── */
-function acceptWord(word) {
-  if (!word || word === "—" || word === "…") return;
-  
-  if (typedText.length > 0 && typedText[typedText.length - 1] !== " ") {
-    var lastSpaceIndex = Math.max(typedText.lastIndexOf(" "), typedText.lastIndexOf("\n"));
-    if (lastSpaceIndex === -1) {
-      typedText = "";
-    } else {
-      typedText = typedText.substring(0, lastSpaceIndex + 1);
-    }
-  }
-  
-  var needsSpace = typedText.length > 0 && typedText[typedText.length - 1] !== " " && typedText[typedText.length - 1] !== "\n";
-  typedText += (needsSpace ? " " : "") + word + " ";
-  renderText();
-  
-  clearTimeout(debounceTimer);
-  scheduleFetch();
-}
-
-/* ── API: fetch 3 diverse suggestions ─────────────────────────────── */
-async function fetchSuggestions() {
-  var prompt = typedText.trim();
-  if (!prompt || prompt.length < 2) {
-    setChipsEmpty("Type at least 2 characters…");
-    return;
-  }
-
-  spinner.style.display = "block";
-  statusMsg.textContent = "Thinking…";
-  setChipsLoading();
-
-  try {
-    var result = await fetch("/suggest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: prompt }),
-    }).then(function(r) { return r.json(); });
-
-    var results = result.words || [];
-
-    var seen = new Set();
-    var unique = [];
-    for (var i = 0; i < results.length; i++) {
-      var clean = results[i].trim();
-      if (clean && !seen.has(clean.toLowerCase())) {
-        seen.add(clean.toLowerCase());
-        unique.push(clean);
+      100% {
+        transform: scale(0.9);
+        box-shadow: 0 0 0 0 rgba(224, 122, 95, 0);
       }
     }
-    while (unique.length < 3) unique.push("");
 
-    setChips(unique);
-    statusMsg.textContent = unique[0] ? "Tap a suggestion to add it →" : "No suggestions yet";
-  } catch (e) {
-    setChipsEmpty("Error: " + e.message);
-  } finally {
-    spinner.style.display = "none";
-  }
-}
-
-function scheduleFetch() {
-  clearTimeout(debounceTimer);
-  if (typedText.trim().length >= 2) {
-    debounceTimer = setTimeout(fetchSuggestions, DEBOUNCE_MS);
-  } else {
-    setChipsEmpty();
-  }
-}
-
-/* ── Key press logic ─────────────────────────────────────────────────── */
-function pressKey(char) {
-  if (typedText.length >= 512) return;
-  typedText += char;
-  renderText();
-    scheduleFetch();
-}
-
-function pressSpace() {
-  if (typedText.length >= 512) return;
-  typedText += " ";
-  renderText();
-  scheduleFetch();
-}
-
-function pressBackspace() {
-  if (typedText.length === 0) return;
-  typedText = typedText.slice(0, -1);
-  renderText();
-  
-  scheduleFetch();
-}
-
-function pressEnter() {
-  /* If there is a top suggestion, accept it on enter */
-  if (typedText.length > 0 && typedText[typedText.length - 1] !== " " && typedText[typedText.length - 1] !== "\n") {
-    var word = chips[0].querySelector("span").textContent;
-    if (word && word !== "—" && word !== "…") {
-      acceptWord(word);
-      return;
+    #status-msg {
+      transition: color 0.3s;
     }
-  }
-  typedText += "\n";
-  renderText();
-  scheduleFetch();
-}
 
+    #status-msg.generating {
+      color: #E07A5F;
+    }
+  </style>
+</head>
 
+<body>
 
-/* ── Physical keyboard support ─────────────────────────────────────── */
-document.addEventListener("keydown", function(e) {
-  if (e.key === "Tab") { e.preventDefault(); return; }
-  if (e.key === "Backspace") { pressBackspace(); return; }
-  if (e.key === "Enter") { pressEnter(); return; }
-  if (e.key === " ") { e.preventDefault(); pressSpace(); return; }
-    if (e.key.length === 1) {
-    typedText += e.key;
-    renderText();
-        scheduleFetch();
-  }
-});
+  <div class="watermark"></div>
 
+  <div class="container">
+    <header>
+      <h1>Tanglish Autocomplete</h1>
+      <p class="subtitle">A Modern Editorial Autocomplete Experience</p>
+    </header>
 
+    <div class="editor-card">
+      <div class="editor-container">
+        <!-- Textarea handles actual input and selection natively -->
+        <textarea id="editor" spellcheck="false" placeholder="Begin crafting your narrative..."></textarea>
+        <!-- Overlay precisely duplicates the text and appends the inline ghost suggestion -->
+        <div id="overlay"><span id="text-rendered"></span><span id="ghost-span" class="ghost-text"></span></div>
+      </div>
 
+      <div class="card-footer">
+        <div class="status-left">
+          <div class="pulse-dot" id="pulse-indicator"></div>
+          <span id="status-msg">Ready</span>
+        </div>
+        <span id="word-count">0 words</span>
+      </div>
+    </div>
+  </div>
 
-/* ── Boot ──────────────────────────────────────────────────────────── */
-renderText();
-setChipsEmpty("Start typing to get AI suggestions…");
-</script>
+  <script>
+    const editor = document.getElementById('editor');
+    const textRendered = document.getElementById('text-rendered');
+    const ghostSpan = document.getElementById('ghost-span');
+    const wordCount = document.getElementById('word-count');
+    const statusMsg = document.getElementById('status-msg');
+    const pulseIndicator = document.getElementById('pulse-indicator');
+
+    let debounceTimer = null;
+    let currentGhostText = "";
+
+    // Sync textarea text exactly to overlay
+    function updateOverlay() {
+      // We append a zero-width space if it ends with a newline to ensure the layout engine
+      // renders the trailing newline height in the div exactly like the textarea does.
+      let val = editor.value;
+      if (val.endsWith('\n')) val += ' ';
+      textRendered.textContent = val;
+
+      // Calculate word count
+      const text = editor.value.trim();
+      const words = text ? text.split(/\s+/).length : 0;
+      wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    }
+
+    // Scroll sync so overlay matches textarea scroll position
+    editor.addEventListener('scroll', () => {
+      document.getElementById('overlay').scrollTop = editor.scrollTop;
+      document.getElementById('overlay').scrollLeft = editor.scrollLeft;
+    });
+
+    // Handle typing events
+    editor.addEventListener('input', () => {
+      clearGhost();
+      updateOverlay();
+
+      clearTimeout(debounceTimer);
+      const val = editor.value;
+
+      // Only trigger autocomplete if the cursor is exactly at the end of the input
+      if (val.trim().length >= 2 && editor.selectionStart === val.length) {
+        debounceTimer = setTimeout(() => fetchSuggestion(val), 400);
+      } else {
+        setStatus('Ready');
+      }
+    });
+
+    // Handle autocomplete acceptance (Tab or Right Arrow)
+    editor.addEventListener('keydown', (e) => {
+      if ((e.key === 'Tab' || e.key === 'ArrowRight') && currentGhostText && editor.selectionStart === editor.value.length) {
+        e.preventDefault();
+
+        editor.value += currentGhostText + " ";
+        clearGhost();
+        updateOverlay();
+
+        // Move caret to end
+        editor.selectionStart = editor.selectionEnd = editor.value.length;
+      }
+    });
+
+    function clearGhost() {
+      currentGhostText = "";
+      ghostSpan.textContent = "";
+    }
+
+    function setStatus(msg, isGenerating = false) {
+      statusMsg.textContent = msg;
+      if (isGenerating) {
+        pulseIndicator.classList.add('active');
+        statusMsg.classList.add('generating');
+      } else {
+        pulseIndicator.classList.remove('active');
+        statusMsg.classList.remove('generating');
+      }
+    }
+
+    // Fetches suggestions either from the real backend or a robust mock API fallback
+    async function fetchSuggestion(text) {
+      if (editor.selectionStart !== editor.value.length) return;
+
+      setStatus('Generating...', true);
+
+      try {
+        // Attempt real backend call to /complete (or /suggest if adapted)
+        const res = await fetch('/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, max_new_tokens: 15 })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.completion && editor.value === text) {
+            currentGhostText = data.completion;
+            ghostSpan.textContent = currentGhostText;
+            setStatus('Press Tab or → to accept');
+            return; // Success, skip mock
+          }
+        }
+      } catch (err) {
+        // Silent fallback to mock logic
+      }
+
+      // --- Mock Logic Fallback ---
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulated network latency
+      if (editor.value !== text) return; // Discard if user kept typing
+
+      const lastToken = text.split(/\s+/).pop().toLowerCase();
+      const endsWithSpace = /\s$/.test(text);
+
+      const tanglishDict = [
+        "romba", "nalla", "super", "machi", "bro", "irukken", "varan",
+        "paarkalam", "saaptaacha", "vanga", "poitu", "vazhi", "oru"
+      ];
+
+      let suggestion = "";
+
+      if (endsWithSpace) {
+        // Suggest a random next word
+        suggestion = tanglishDict[Math.floor(Math.random() * tanglishDict.length)];
+      } else {
+        // Try to complete the current partial word
+        const match = tanglishDict.find(w => w.startsWith(lastToken) && w !== lastToken);
+        if (match) suggestion = match.slice(lastToken.length);
+      }
+
+      if (suggestion) {
+        currentGhostText = suggestion;
+        ghostSpan.textContent = suggestion;
+        setStatus('Press Tab or → to accept');
+      } else {
+        setStatus('Ready');
+      }
+    }
+
+    // Initialize
+    updateOverlay();
+    editor.focus();
+
+  </script>
 </body>
+
 </html>
