@@ -252,6 +252,38 @@
     #status-msg.generating {
       color: #E07A5F;
     }
+
+    /* Suggestions Container */
+    #suggestions-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      min-height: 42px;
+      /* Prevent layout shift */
+    }
+
+    .suggestion-chip {
+      padding: 8px 16px;
+      border-radius: 20px;
+      background: var(--bg);
+      border: 1px solid rgba(44, 42, 41, 0.1);
+      color: var(--text);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .suggestion-chip:hover {
+      background: rgba(224, 122, 95, 0.1);
+      border-color: #E07A5F;
+    }
+
+    .suggestion-chip.active {
+      background: #E07A5F;
+      color: white;
+      border-color: #E07A5F;
+    }
   </style>
 </head>
 
@@ -261,7 +293,7 @@
 
   <div class="container">
     <header>
-      <h1>Tanglish Autocomplete</h1>
+      <h1>Tanglish / Telgish Autocomplete</h1>
       <p class="subtitle">A Modern Editorial Autocomplete Experience</p>
     </header>
 
@@ -270,8 +302,10 @@
         <!-- Textarea handles actual input and selection natively -->
         <textarea id="editor" spellcheck="false" placeholder="Begin crafting your narrative..."></textarea>
         <!-- Overlay precisely duplicates the text and appends the inline ghost suggestion -->
-        <div id="overlay"><span id="text-rendered"></span><span id="ghost-span" class="ghost-text"></span></div>
+        <div id="overlay"><span id="text-rendered"></span></div>
       </div>
+
+      <div id="suggestions-box"></div>
 
       <div class="card-footer">
         <div class="status-left">
@@ -286,13 +320,14 @@
   <script>
     const editor = document.getElementById('editor');
     const textRendered = document.getElementById('text-rendered');
-    const ghostSpan = document.getElementById('ghost-span');
     const wordCount = document.getElementById('word-count');
     const statusMsg = document.getElementById('status-msg');
     const pulseIndicator = document.getElementById('pulse-indicator');
+    const suggestionsBox = document.getElementById('suggestions-box');
 
     let debounceTimer = null;
-    let currentGhostText = "";
+    let currentSuggestions = [];
+    let selectedIndex = 0;
 
     // Sync textarea text exactly to overlay
     function updateOverlay() {
@@ -316,7 +351,7 @@
 
     // Handle typing events
     editor.addEventListener('input', () => {
-      clearGhost();
+      clearSuggestions();
       updateOverlay();
 
       clearTimeout(debounceTimer);
@@ -330,23 +365,53 @@
       }
     });
 
-    // Handle autocomplete acceptance (Tab or Right Arrow)
+    function applySuggestion(suggestionText) {
+      let val = editor.value;
+      const endsWithSpace = /\s$/.test(val);
+
+      if (endsWithSpace) {
+        val += suggestionText + " ";
+      } else {
+        // Replace last partial word
+        val = val.replace(/[^\s]+$/, suggestionText + " ");
+      }
+
+      editor.value = val;
+      clearSuggestions();
+      updateOverlay();
+
+      editor.selectionStart = editor.selectionEnd = editor.value.length;
+      editor.focus();
+    }
+
+    // Handle autocomplete acceptance
     editor.addEventListener('keydown', (e) => {
-      if ((e.key === 'Tab' || e.key === 'ArrowRight') && currentGhostText && editor.selectionStart === editor.value.length) {
-        e.preventDefault();
-
-        editor.value += currentGhostText + " ";
-        clearGhost();
-        updateOverlay();
-
-        // Move caret to end
-        editor.selectionStart = editor.selectionEnd = editor.value.length;
+      if (currentSuggestions.length > 0) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applySuggestion(currentSuggestions[selectedIndex]);
+        }
       }
     });
 
-    function clearGhost() {
-      currentGhostText = "";
-      ghostSpan.textContent = "";
+    function renderSuggestions(suggestions) {
+      suggestionsBox.innerHTML = '';
+      currentSuggestions = suggestions;
+      selectedIndex = 0; // Default select top suggestion
+
+      suggestions.forEach((sug, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'suggestion-chip';
+        if (idx === 0) chip.classList.add('active');
+        chip.textContent = sug;
+        chip.onclick = () => applySuggestion(sug);
+        suggestionsBox.appendChild(chip);
+      });
+    }
+
+    function clearSuggestions() {
+      currentSuggestions = [];
+      suggestionsBox.innerHTML = '';
     }
 
     function setStatus(msg, isGenerating = false) {
@@ -367,19 +432,18 @@
       setStatus('Generating...', true);
 
       try {
-        // Attempt real backend call to /complete (or /suggest if adapted)
-        const res = await fetch('/complete', {
+        // Attempt real backend call to /suggest
+        const res = await fetch('/suggest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, max_new_tokens: 15 })
+          body: JSON.stringify({ text: text })
         });
 
         if (res.ok) {
           const data = await res.json();
-          if (data.completion && editor.value === text) {
-            currentGhostText = data.completion;
-            ghostSpan.textContent = currentGhostText;
-            setStatus('Press Tab or → to accept');
+          if (data.words && data.words.length > 0 && editor.value === text) {
+            renderSuggestions(data.words);
+            setStatus('Press Enter to accept');
             return; // Success, skip mock
           }
         }
@@ -399,22 +463,21 @@
         "paarkalam", "saaptaacha", "vanga", "poitu", "vazhi", "oru"
       ];
 
-      let suggestion = "";
+      let suggestions = [];
 
       if (endsWithSpace) {
-        // Suggest a random next word
-        suggestion = tanglishDict[Math.floor(Math.random() * tanglishDict.length)];
+        // Suggest 3 random next words
+        suggestions = tanglishDict.sort(() => 0.5 - Math.random()).slice(0, 3);
       } else {
         // Try to complete the current partial word
-        const match = tanglishDict.find(w => w.startsWith(lastToken) && w !== lastToken);
-        if (match) suggestion = match.slice(lastToken.length);
+        suggestions = tanglishDict.filter(w => w.startsWith(lastToken) && w !== lastToken).slice(0, 3);
       }
 
-      if (suggestion) {
-        currentGhostText = suggestion;
-        ghostSpan.textContent = suggestion;
-        setStatus('Press Tab or → to accept');
+      if (suggestions.length > 0) {
+        renderSuggestions(suggestions);
+        setStatus('Press Enter to accept');
       } else {
+        clearSuggestions();
         setStatus('Ready');
       }
     }
